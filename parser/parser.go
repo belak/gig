@@ -46,6 +46,21 @@ func (e *Env) Eval(node Node) (interface{}, error) {
 
 // Bootstrapping functions
 
+// Adds a field and a setter to the environment
+func (e *Env) addField(name string, initial interface{}) {
+    e.scope.Create("pkg-"+name, initial)
+    e.scope.Create(name, func(args []interface{}) (interface{}, error) {
+        if len(args) == 0 {
+            // TODO: return error
+            return nil, nil
+        }
+
+        err := e.scope.Set("pkg-"+name, args[0])
+
+        return nil, err
+    })
+}
+
 // Displays a string to the user
 // Requires at least one argument
 //
@@ -58,132 +73,6 @@ func (e *Env) disp(args []interface{}) (interface{}, error) {
 
     fmt.Println(args...)
     return nil, nil
-}
-
-// Will change
-// Sets the install function that is called to install the package
-// Expects one function as an argument
-func (e *Env) install(args []interface{}) (interface{}, error) {
-    if len(args) == 0 {
-        // TODO: return error
-        return nil, nil
-    }
-
-    err := e.scope.Set("pkg-install", args[0])
-
-    return nil, err
-}
-
-// Sets the tunefile version
-// Expects one float as argument
-//
-// Called as:
-//   (tune-version <version>)
-func (e *Env) setTuneVersion(args[]interface{}) (interface{}, error) {
-    if len(args) == 0 {
-        // TODO: return error
-        return nil, nil
-    }
-
-    err := e.scope.Set("tune-version", args[0])
-
-    return nil, err
-}
-
-// Sets the package name
-// Expects one string as argument
-//
-// Called as:
-//   (name <name>)
-func (e *Env) setName(args[]interface{}) (interface{}, error) {
-    if len(args) == 0 {
-        // TODO: return error
-        return nil, nil
-    }
-
-    err := e.scope.Set("pkg-name", args[0])
-
-    return nil, err
-}
-
-// Sets the package description
-// Expects one string as argument
-//
-// Called as:
-//   (description <description>)
-func (e *Env) setDescription(args[]interface{}) (interface{}, error) {
-    if len(args) == 0 {
-        // TODO: return error
-        return nil, nil
-    }
-
-    err := e.scope.Set("pkg-description", args[0])
-
-    return nil, err
-}
-
-// Sets the package license
-// Expects one string as argument
-//
-// Called as:
-//   (license <license>)
-func (e *Env) setLicense(args[]interface{}) (interface{}, error) {
-    if len(args) == 0 {
-        // TODO: return error
-        return nil, nil
-    }
-
-    err := e.scope.Set("pkg-license", args[0])
-
-    return nil, err
-}
-
-// Sets the package version
-// Expects one float as argument
-//
-// Called as:
-//   (version <version>)
-func (e *Env) setVersion(args[]interface{}) (interface{}, error) {
-    if len(args) == 0 {
-        // TODO: return error
-        return nil, nil
-    }
-
-    err := e.scope.Set("pkg-version", args[0])
-
-    return nil, err
-}
-
-// Sets the package homepage
-// Expects one string as argument
-//
-// Called as:
-//   (homepage <url>)
-func (e *Env) setHomepage(args[]interface{}) (interface{}, error) {
-    if len(args) == 0 {
-        // TODO: return error
-        return nil, nil
-    }
-
-    err := e.scope.Set("pkg-homepage", args[0])
-
-    return nil, err
-}
-
-// Sets the package source URL
-// Expects one string as argument
-//
-// Called as:
-//   (url <url>)
-func (e *Env) setUrl(args[]interface{}) (interface{}, error) {
-    if len(args) == 0 {
-        // TODO: return error
-        return nil, nil
-    }
-
-    err := e.scope.Set("pkg-url", args[0])
-
-    return nil, err
 }
 
 // Sets the package dependencies
@@ -249,6 +138,48 @@ func (e *Env) bootstrap() {
     // and setter
     // TODO: make generic getters and setters (pass types somehow?)
 
+    fields := []struct{
+        name string
+        initial interface{}
+    }{
+        {
+            "tune-version",
+            "",
+        },
+        {
+            "name",
+            "",
+        },
+        {
+            "description",
+            "",
+        },
+        {
+            "license",
+            "",
+        },
+        {
+            "version",
+            "",
+        },
+        {
+            "homepage",
+            "",
+        },
+        {
+            "url",
+            "",
+        },
+        {
+            "install",
+            func([]interface{}) (interface{}, error) { return nil, nil },
+        },
+    }
+
+    for _, field := range fields {
+        e.addField(field.name, field.initial)
+    }
+
     // Create symbols list
     symbols := []struct{
         key string
@@ -256,71 +187,11 @@ func (e *Env) bootstrap() {
     }{
         // Internal variables
         {
-            "pkg-name",
-            "",
-        },
-        {
-            "pkg-description",
-            "",
-        },
-        {
-            "pkg-license",
-            "",
-        },
-        {
-            "pkg-version",
-            0.0,
-        },
-        {
-            "pkg-homepage",
-            "",
-        },
-        {
-            "pkg-url",
-            "",
-        },
-        {
-            "pkg-install",
-            func([]interface{}) (interface{}, error) { return nil, nil },
-        },
-        {
             "pkg-dependencies",
             []string{},
         },
 
         // Setters
-        {
-            "tune-version",
-            e.setTuneVersion,
-        },
-        {
-            "name",
-            e.setName,
-        },
-        {
-            "description",
-            e.setDescription,
-        },
-        {
-            "license",
-            e.setLicense,
-        },
-        {
-            "version",
-            e.setVersion,
-        },
-        {
-            "homepage",
-            e.setHomepage,
-        },
-        {
-            "url",
-            e.setUrl,
-        },
-        {
-            "install",
-            e.install,
-        },
         {
             "disp",
             e.disp,

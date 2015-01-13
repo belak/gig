@@ -1,9 +1,9 @@
-(tune-version 0.1)
+(tune-version "0.1")
 
 (name "gig")
 (description "A package manager")
 (license "MIT")
-(version 0.1)
+(version "0.1")
 (homepage "http://github.com/belak/gig")
 (url "http://github.com/belak/gig")
 
