@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 
 	"gopkg.in/twik.v1"
 	"gopkg.in/twik.v1/ast"
@@ -96,16 +97,14 @@ func (e *Env) dependsOn(args []interface{}) (interface{}, error) {
 	return nil, err
 }
 
-// Will change
-func (e *Env) cd(args []interface{}) (interface{}, error) {
-	if len(args) != 1 {
-		// TODO: return error
-		return nil, nil
-	}
+func (e *Env) cd(args[]interface{}) (interface{}, error) {
+    if len(args) == 0 {
+        return nil, nil
+    }
 
-	// TODO: implement
+    err := os.Chdir(args[0].(string))
 
-	return nil, nil
+    return nil, err
 }
 
 // Will change
@@ -114,114 +113,105 @@ func (e *Env) shell(args []interface{}) (interface{}, error) {
 		return nil, nil
 	}
 
-	// TODO: implement
+    cmd := args[0].(string)
+    cmdArgs := []string{}
+    if len(args) > 1 {
+        for _, arg := range args[1:] {
+            cmdArgs = append(cmdArgs, arg.(string))
+        }
+    }
 
-	return nil, nil
-}
+    // TODO: implement
+    out, err := exec.Command(cmd, cmdArgs...).Output()
+    if err != nil {
+        return nil, err
+    }
 
-// Will change
-func (e *Env) setEnv(args []interface{}) (interface{}, error) {
-	if len(args) != 2 {
-		// TODO: return error
-		return nil, nil
-	}
-
-	// TODO: implement
-
-	return nil, nil
+    return string(out), nil
 }
 
 // Bootstraps the environment and creates our DSL
 func (e *Env) bootstrap() {
-	// TODO: maybe switch to naming a param, giving a type,
-	// and then automatically create "private" param, getter,
-	// and setter
-	// TODO: make generic getters and setters (pass types somehow?)
+    fields := []struct{
+        name string
+        initial interface{}
+    }{
+        {
+            "tune-version",
+            "",
+        },
+        {
+            "name",
+            "",
+        },
+        {
+            "description",
+            "",
+        },
+        {
+            "license",
+            "",
+        },
+        {
+            "version",
+            "",
+        },
+        {
+            "homepage",
+            "",
+        },
+        {
+            "url",
+            "",
+        },
+        {
+            "install",
+            func([]interface{}) (interface{}, error) { return nil, nil },
+        },
+    }
 
-	fields := []struct {
-		name    string
-		initial interface{}
-	}{
-		{
-			"tune-version",
-			"",
-		},
-		{
-			"name",
-			"",
-		},
-		{
-			"description",
-			"",
-		},
-		{
-			"license",
-			"",
-		},
-		{
-			"version",
-			"",
-		},
-		{
-			"homepage",
-			"",
-		},
-		{
-			"url",
-			"",
-		},
-		{
-			"install",
-			func([]interface{}) (interface{}, error) { return nil, nil },
-		},
-	}
+    for _, field := range fields {
+        e.addField(field.name, field.initial)
+    }
 
-	for _, field := range fields {
-		e.addField(field.name, field.initial)
-	}
+    // Create symbols list
+    symbols := []struct{
+        key string
+        value interface{}
+    }{
+        // Internal variables
+        {
+            "pkg-dependencies",
+            []string{},
+        },
 
-	// Create symbols list
-	symbols := []struct {
-		key   string
-		value interface{}
-	}{
-		// Internal variables
-		{
-			"pkg-dependencies",
-			[]string{},
-		},
+        // Setters
+        {
+            "disp",
+            e.disp,
+        },
+        {
+            "cd",
+            e.cd,
+        },
+        {
+            "shell",
+            e.shell,
+        },
+        {
+            "depends-on",
+            e.dependsOn,
+        },
+    }
 
-		// Setters
-		{
-			"disp",
-			e.disp,
-		},
-		{
-			"cd",
-			e.cd,
-		},
-		{
-			"shell",
-			e.shell,
-		},
-		{
-			"set-env",
-			e.setEnv,
-		},
-		{
-			"depends-on",
-			e.dependsOn,
-		},
-	}
-
-	// Add symbols to scope
-	for _, s := range symbols {
-		err := e.scope.Create(s.key, s.value)
-		if err != nil {
-			fmt.Printf("Error bootstrapping: %s\n", err)
-			os.Exit(1)
-		}
-	}
+    // Add symbols to scope
+    for _, s := range symbols {
+        err := e.scope.Create(s.key, s.value)
+        if err != nil {
+            fmt.Printf("Error bootstrapping: %s\n", err)
+            os.Exit(1)
+        }
+    }
 }
 
 func (e *Env) GetString(name string) (string, error) {
