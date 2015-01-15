@@ -120,27 +120,6 @@ func (e *Env) disp(args []interface{}) (interface{}, error) {
 	return nil, nil
 }
 
-// Sets the package dependencies
-// Expects at least one string as argument
-//
-// Called as:
-//   (depends-on <dep1> [dep2...])
-func (e *Env) dependsOn(args []interface{}) (interface{}, error) {
-	if len(args) == 0 {
-		// TODO: return error
-		return nil, nil
-	}
-
-	var deps []string
-	for _, dep := range args {
-		deps = append(deps, dep.(string))
-	}
-
-	err := e.scope.Set("pkg-dependencies", deps)
-
-	return nil, err
-}
-
 func (e *Env) cd(args []interface{}) (interface{}, error) {
 	if len(args) == 0 {
 		return nil, nil
@@ -223,7 +202,7 @@ func (e *Env) bootstrap() error {
 
 	// Load tunefile bootstrap
 	// TODO: load this value from config
-	node, err := e.ParseFile("tunes/gig-env.tune", "environment")
+	node, err := e.ParseFile("tunefiles/gig-env.tune", "environment")
 	if err != nil {
 		return err
 	}
