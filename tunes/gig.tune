@@ -1,4 +1,5 @@
 (tune-version "0.1")
+(disp pkg-tune-version)
 
 (name "gig")
 (description "A package manager")
@@ -8,8 +9,15 @@
 (url "http://github.com/belak/gig")
 
 (depends-on
-  "go"
-  "twik")
+  (list
+    "go"
+    "twik"))
+
+(disp (get-platform))
+
+(if (is-platform "darwin")
+  (disp "OSX")
+  (disp "Not OSX"))
 
 (install
   (func ()

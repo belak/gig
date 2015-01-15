@@ -1,0 +1,45 @@
+; Internal variables
+(var pkg-tune-version "")
+(var pkg-name "")
+(var pkg-description "")
+(var pkg-license "")
+(var pkg-version "")
+(var pkg-homepage "")
+(var pkg-url "")
+
+(var pkg-install
+     (func () ()))
+
+(var pkg-dependencies (list ""))
+
+; Internal variable setters
+(func tune-version (val)
+      (set pkg-tune-version val))
+(func name (val)
+      (set pkg-name val))
+(func description (val)
+      (set pkg-description val))
+(func license (val)
+      (set pkg-license val))
+(func version (val)
+      (set pkg-version val))
+(func homepage (val)
+      (set pkg-homepage val))
+(func url (val)
+      (set pkg-url val))
+
+(func install (f)
+      (set pkg-install f))
+
+(func depends-on (deps)
+      (set pkg-dependencies deps))
+
+; Helper functions
+(func is-platform (platform)
+      (== platform (get-platform)))
+
+(func is-darwin ()
+      (is-platform "darwin"))
+
+(func is-linux ()
+      (is-platform "linux"))

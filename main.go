@@ -14,14 +14,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	env := parser.NewEnv()
-	node, err := env.ParseFile(os.Args[1])
+	env, err := parser.NewEnv()
+	if err != nil {
+		fmt.Printf("Error creating new environment, %s\n", err)
+		os.Exit(1)
+	}
+
+	node, err := env.LoadTune(os.Args[1])
 	if err != nil {
 		fmt.Printf("Error parsing file, %s\n", err)
 		os.Exit(1)
 	}
 
-	env.Eval(node)
+	_, err = env.Eval(node)
+	if err != nil {
+		fmt.Printf("Error running tunefile, %s\n", err)
+		os.Exit(1)
+	}
 
 	env.Invoke("pkg-install", []interface{}{})
 
@@ -32,7 +41,7 @@ func main() {
 	}
 	fmt.Println(desc)
 
-	deps, err := env.GetStringArray("pkg-dependencies")
+	deps, err := env.GetList("pkg-dependencies")
 	if err != nil {
 		fmt.Printf("Error fetching dependencies, %s\n", err)
 		os.Exit(1)

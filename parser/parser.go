@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"runtime"
+	"strings"
 
 	"gopkg.in/twik.v1"
 	"gopkg.in/twik.v1/ast"
@@ -17,28 +19,35 @@ type Env struct {
 
 type Node ast.Node
 
-func NewEnv() *Env {
+func NewEnv() (*Env, error) {
 	fset := twik.NewFileSet()
 	scope := twik.NewScope(fset)
 	env := &Env{scope, fset}
 
 	// Add our stuff
-	env.bootstrap()
-
-	return env
-}
-
-func (e *Env) ParseFile(filename string) (Node, error) {
-	data, err := ioutil.ReadFile(os.Args[1])
+	err := env.bootstrap()
 	if err != nil {
 		return nil, err
 	}
 
-	return e.Parse(data)
+	return env, nil
 }
 
-func (e *Env) Parse(data []byte) (Node, error) {
-	return twik.Parse(e.fset, "Tune", data)
+func (e *Env) LoadTune(filename string) (Node, error) {
+	return e.ParseFile(filename, "tune")
+}
+
+func (e *Env) ParseFile(filename, tune string) (Node, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.Parse(tune, data)
+}
+
+func (e *Env) Parse(tune string, data []byte) (Node, error) {
+	return twik.Parse(e.fset, tune, data)
 }
 
 func (e *Env) Eval(node Node) (interface{}, error) {
@@ -60,6 +69,41 @@ func (e *Env) addField(name string, initial interface{}) {
 
 		return nil, err
 	})
+}
+
+// Returns arguments as a list
+// Requires at least one argument
+//
+// Called as:
+//   (list <arg1> [arg2...])
+func (e *Env) list(args []interface{}) (interface{}, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("list takes at least one argument")
+	}
+
+	return args, nil
+}
+
+func (e *Env) str(args []interface{}) (interface{}, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("str takes at least one argument")
+	}
+
+	var arrArgs []interface{}
+
+	if _, ok := args[0].([]interface{}); ok {
+		arrArgs = args[0].([]interface{})
+	} else {
+		arrArgs = args
+	}
+
+	// TODO: don't assume all args are strings
+	strArgs := []string{}
+	for _, arg := range arrArgs {
+		strArgs = append(strArgs, arg.(string))
+	}
+
+	return strings.Join(strArgs, ""), nil
 }
 
 // Displays a string to the user
@@ -97,14 +141,18 @@ func (e *Env) dependsOn(args []interface{}) (interface{}, error) {
 	return nil, err
 }
 
-func (e *Env) cd(args[]interface{}) (interface{}, error) {
-    if len(args) == 0 {
-        return nil, nil
-    }
+func (e *Env) cd(args []interface{}) (interface{}, error) {
+	if len(args) == 0 {
+		return nil, nil
+	}
 
-    err := os.Chdir(args[0].(string))
+	err := os.Chdir(args[0].(string))
 
-    return nil, err
+	return nil, err
+}
+
+func (e *Env) getPlatform(args []interface{}) (interface{}, error) {
+	return runtime.GOOS, nil
 }
 
 // Will change
@@ -113,105 +161,79 @@ func (e *Env) shell(args []interface{}) (interface{}, error) {
 		return nil, nil
 	}
 
-    cmd := args[0].(string)
-    cmdArgs := []string{}
-    if len(args) > 1 {
-        for _, arg := range args[1:] {
-            cmdArgs = append(cmdArgs, arg.(string))
-        }
-    }
+	cmd := args[0].(string)
+	cmdArgs := []string{}
+	if len(args) > 1 {
+		for _, arg := range args[1:] {
+			cmdArgs = append(cmdArgs, arg.(string))
+		}
+	}
 
-    // TODO: implement
-    out, err := exec.Command(cmd, cmdArgs...).Output()
-    if err != nil {
-        return nil, err
-    }
+	// TODO: implement
+	out, err := exec.Command(cmd, cmdArgs...).Output()
+	if err != nil {
+		return nil, err
+	}
 
-    return string(out), nil
+	return string(out), nil
 }
 
 // Bootstraps the environment and creates our DSL
-func (e *Env) bootstrap() {
-    fields := []struct{
-        name string
-        initial interface{}
-    }{
-        {
-            "tune-version",
-            "",
-        },
-        {
-            "name",
-            "",
-        },
-        {
-            "description",
-            "",
-        },
-        {
-            "license",
-            "",
-        },
-        {
-            "version",
-            "",
-        },
-        {
-            "homepage",
-            "",
-        },
-        {
-            "url",
-            "",
-        },
-        {
-            "install",
-            func([]interface{}) (interface{}, error) { return nil, nil },
-        },
-    }
+func (e *Env) bootstrap() error {
+	// Create symbols list
+	symbols := []struct {
+		key   string
+		value interface{}
+	}{
+		// Internal variables
+		{
+			"list",
+			e.list,
+		},
+		{
+			"str",
+			e.str,
+		},
+		{
+			"disp",
+			e.disp,
+		},
+		{
+			"cd",
+			e.cd,
+		},
+		{
+			"get-platform",
+			e.getPlatform,
+		},
+		{
+			"shell",
+			e.shell,
+		},
+	}
 
-    for _, field := range fields {
-        e.addField(field.name, field.initial)
-    }
+	// Add symbols to scope
+	for _, s := range symbols {
+		err := e.scope.Create(s.key, s.value)
+		if err != nil {
+			fmt.Printf("Error bootstrapping: %s\n", err)
+			os.Exit(1)
+		}
+	}
 
-    // Create symbols list
-    symbols := []struct{
-        key string
-        value interface{}
-    }{
-        // Internal variables
-        {
-            "pkg-dependencies",
-            []string{},
-        },
+	// Load tunefile bootstrap
+	// TODO: load this value from config
+	node, err := e.ParseFile("tunes/gig-env.tune", "environment")
+	if err != nil {
+		return err
+	}
 
-        // Setters
-        {
-            "disp",
-            e.disp,
-        },
-        {
-            "cd",
-            e.cd,
-        },
-        {
-            "shell",
-            e.shell,
-        },
-        {
-            "depends-on",
-            e.dependsOn,
-        },
-    }
+	_, err = e.scope.Eval(node)
+	if err != nil {
+		return err
+	}
 
-    // Add symbols to scope
-    for _, s := range symbols {
-        err := e.scope.Create(s.key, s.value)
-        if err != nil {
-            fmt.Printf("Error bootstrapping: %s\n", err)
-            os.Exit(1)
-        }
-    }
+	return nil
 }
 
 func (e *Env) GetString(name string) (string, error) {
@@ -230,6 +252,29 @@ func (e *Env) GetStringArray(name string) ([]string, error) {
 	}
 
 	return val.([]string), err
+}
+
+func (e *Env) GetList(name string) ([]string, error) {
+	val, err := e.scope.Get(name)
+	if err != nil {
+		return nil, err
+	}
+
+	var arrArgs []interface{}
+
+	if _, ok := val.([]interface{}); ok {
+		arrArgs = val.([]interface{})
+	} else {
+		arrArgs = []interface{}{val.(interface{})}
+	}
+
+	// TODO: don't assume all args are strings
+	strArgs := []string{}
+	for _, arg := range arrArgs {
+		strArgs = append(strArgs, arg.(string))
+	}
+
+	return strArgs, nil
 }
 
 // Calls function defined in the tunefile
