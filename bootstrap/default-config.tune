@@ -1,0 +1,5 @@
+; Default configuration values
+(var default-prefixdir (str "$HOME/.gig/"))
+
+; Core configuration values
+(var tunefile-dir "tunefiles/")

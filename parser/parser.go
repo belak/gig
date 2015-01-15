@@ -84,6 +84,11 @@ func (e *Env) list(args []interface{}) (interface{}, error) {
 	return args, nil
 }
 
+// Concatenates all arguments into one string
+// Also expands all environment variables inline
+//
+// Called as:
+//   (str <arg1> [arg2...])
 func (e *Env) str(args []interface{}) (interface{}, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("str takes at least one argument")
@@ -100,7 +105,8 @@ func (e *Env) str(args []interface{}) (interface{}, error) {
 	// TODO: don't assume all args are strings
 	strArgs := []string{}
 	for _, arg := range arrArgs {
-		strArgs = append(strArgs, arg.(string))
+		expanded := os.ExpandEnv(arg.(string))
+		strArgs = append(strArgs, expanded)
 	}
 
 	return strings.Join(strArgs, ""), nil
@@ -201,15 +207,21 @@ func (e *Env) bootstrap() error {
 	}
 
 	// Load tunefile bootstrap
-	// TODO: load this value from config
-	node, err := e.ParseFile("tunefiles/gig-env.tune", "environment")
-	if err != nil {
-		return err
+	bootstraps := []string{
+		"tune-env",
+		"default-config",
 	}
 
-	_, err = e.scope.Eval(node)
-	if err != nil {
-		return err
+	for _, strap := range bootstraps {
+		node, err := e.ParseFile("bootstrap/"+strap+".tune", strap)
+		if err != nil {
+			return err
+		}
+
+		_, err = e.scope.Eval(node)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

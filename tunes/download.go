@@ -38,6 +38,13 @@ func Download(tune *parser.Env, conf *config.Config) error {
 		return err
 	}
 
+	defaultDir, err := tune.GetString("default-prefixdir")
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(defaultDir)
+
 	// Check if prefixdir exists and create if it doesn't
 	src, err := os.Stat(confVals.Prefixdir + "src")
 	if err != nil {
