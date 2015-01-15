@@ -59,6 +59,7 @@ func Download(tune *parser.Env, conf *config.Config) error {
 	if err != nil {
 		return err
 	}
+	defer res.Body.Close()
 
 	outFile, err := os.OpenFile(confVals.Prefixdir+"src/"+base,
 		os.O_CREATE|os.O_WRONLY, 0755)
@@ -73,30 +74,34 @@ func Download(tune *parser.Env, conf *config.Config) error {
 	}
 
 	hash := sha1.New()
-	downloadedBytes := 0
-	buffer := make([]byte, BUFSIZE)
+	var downloadedBytes int64 = 0
+
+	w := io.MultiWriter(outFile, hash)
 
 	fmt.Printf("0/%d bytes (0%%)", totalBytes)
 	for {
-		bytes, err := res.Body.Read(buffer)
-		if err != nil && err != io.EOF {
-			return err
-		}
-		hash.Write(buffer[:bytes])
-		outFile.Write(buffer[:bytes])
+		// TODO: calculate checksum here and compare at end
+		bytes, err := io.CopyN(w, res.Body, BUFSIZE)
 		downloadedBytes += bytes
-		fmt.Printf("\r%d/%d bytes (%d%%)", downloadedBytes, totalBytes, int(float64(downloadedBytes)/float64(totalBytes)*100.0))
 
 		if err == io.EOF {
 			break
 		}
+
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("\r%d/%d bytes (%d%%)", downloadedBytes, totalBytes, int(float64(downloadedBytes)/float64(totalBytes)*100.0))
 	}
+
+	fmt.Printf("\r%d/%d bytes (%d%%)", downloadedBytes, totalBytes, int(float64(downloadedBytes)/float64(totalBytes)*100.0))
+	fmt.Printf("\nDownloaded %d bytes\n", downloadedBytes)
+	fmt.Printf("expected: %s\ncalcul'd: %x\n", checksum, hash.Sum(nil))
 
 	if checksum != fmt.Sprintf("%x", hash.Sum(nil)) {
 		return fmt.Errorf("Checksums not equal")
 	}
-
-	fmt.Printf("\nDownloaded %d bytes\n", downloadedBytes)
 
 	return nil
 }
