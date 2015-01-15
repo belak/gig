@@ -1,11 +1,11 @@
 ; Internal variables
 (var pkg-tune-version "")
-(var pkg-name "")
 (var pkg-description "")
 (var pkg-license "")
 (var pkg-version "")
 (var pkg-homepage "")
 (var pkg-url "")
+(var pkg-sha1 "")
 
 (var pkg-install
      (func () ()))
@@ -15,8 +15,6 @@
 ; Internal variable setters
 (func tune-version (val)
       (set pkg-tune-version val))
-(func name (val)
-      (set pkg-name val))
 (func description (val)
       (set pkg-description val))
 (func license (val)
@@ -27,6 +25,8 @@
       (set pkg-homepage val))
 (func url (val)
       (set pkg-url val))
+(func sha1 (val)
+      (set pkg-sha1 val))
 
 (func install (f)
       (set pkg-install f))
