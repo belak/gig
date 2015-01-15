@@ -80,6 +80,10 @@ func search(name string) {
 	}
 
 	for _, file := range files {
+		if file.Name()[0] == '.' {
+			continue
+		}
+
 		if file.Name() == name+".tune" {
 			fmt.Printf("Package %s found\n", name)
 			return
