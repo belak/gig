@@ -78,33 +78,25 @@ func Download(tune *parser.Env, conf *config.Config) error {
 
 	fmt.Printf("0/%d bytes (0%%)", totalBytes)
 	for {
-		// TODO: calculate checksum here and compare at end
-		//bytes, err := io.CopyN(outFile, res.Body, BUFSIZE)
 		bytes, err := res.Body.Read(buffer)
-		if err == io.EOF {
-			//hash.Write(buffer[:bytes])
-			io.WriteString(hash, string(buffer[:bytes]))
-			outFile.Write(buffer[:bytes])
-			downloadedBytes += bytes
-			fmt.Printf("\r%d/%d bytes (%d%%)", downloadedBytes, totalBytes, int(float64(downloadedBytes)/float64(totalBytes)*100.0))
-			break
-		}
-
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return err
 		}
-
-		//hash.Write(buffer)
-		io.WriteString(hash, string(buffer))
-		outFile.Write(buffer)
-
+		hash.Write(buffer[:bytes])
+		outFile.Write(buffer[:bytes])
 		downloadedBytes += bytes
 		fmt.Printf("\r%d/%d bytes (%d%%)", downloadedBytes, totalBytes, int(float64(downloadedBytes)/float64(totalBytes)*100.0))
+
+		if err == io.EOF {
+			break
+		}
 	}
 
-	fmt.Printf("\nexpected: %s\ncalcul'd: %x\n", checksum, hash.Sum(nil))
+	if checksum != fmt.Sprintf("%x", hash.Sum(nil)) {
+		return fmt.Errorf("Checksums not equal")
+	}
 
-	fmt.Printf("Downloaded %d bytes\n", downloadedBytes)
+	fmt.Printf("\nDownloaded %d bytes\n", downloadedBytes)
 
 	return nil
 }
