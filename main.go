@@ -13,12 +13,35 @@ import (
 	"path"
 	"strings"
 
+	"./config"
 	"./parser"
 )
 
+var conf *config.Config
+
+type CoreConfig struct {
+	Prefixdir string
+}
+
+var confVals *CoreConfig
+
 func main() {
+	// TODO: make right
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: gig <file.tune>\n")
+		os.Exit(1)
+	}
+
+	conf, err := config.NewConfig("../configs/gig.toml")
+	if err != nil {
+		fmt.Printf("Error loading config file, %s\n", err)
+		os.Exit(1)
+	}
+
+	confVals = &CoreConfig{}
+	err = conf.Load("core", confVals)
+	if err != nil {
+		fmt.Printf("Error loading config values, %s\n", err)
 		os.Exit(1)
 	}
 
@@ -103,6 +126,22 @@ func fetchSource(name string) {
 }
 
 func downloadSource(url, checksum string) {
+	// Check if prefixdir exists and create if it doesn't
+	src, err := os.Stat(confVals.Prefixdir)
+	if err != nil {
+		// Create prefix directory
+		err = os.MkdirAll(confVals.Prefixdir, 0755)
+		if err != nil {
+			fmt.Println("Error creating prefix directory, %s\n", err)
+			os.Exit(1)
+		}
+	} else {
+		if !src.IsDir() {
+			fmt.Println("Prefix directory exists and is not a directory")
+			os.Exit(1)
+		}
+	}
+
 	base := path.Base(url)
 	fmt.Printf("Downloading %s...\n", url)
 
@@ -144,7 +183,8 @@ func downloadSource(url, checksum string) {
 		base = base[0:idx]
 	}
 
-	dirname, err := ioutil.TempDir(".", base+"_")
+	dirname, err := ioutil.TempDir(confVals.Prefixdir, base+"_")
+
 	if err != nil {
 		fmt.Printf("Error creating temporary directory, %s\n", err)
 		os.Exit(1)
@@ -174,7 +214,6 @@ func downloadSource(url, checksum string) {
 			// handle directory
 			fmt.Println("Creating directory :", filename)
 			err = os.MkdirAll(dirname+"/"+filename, 0755) // os.FileMode(header.Mode)
-
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
