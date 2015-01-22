@@ -7,4 +7,4 @@
 ;; Core configuration values
 
 ; Sets where source tarballs are downloaded
-(var prefixdir (str "$HOME/.gig/src/"))
+(var prefixdir (str "$HOME/.gig/"))

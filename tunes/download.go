@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 
@@ -32,24 +33,25 @@ func Download(tune *parser.Env, conf *config.Config) error {
 		return err
 	}
 
-	defaultDirInterface, err := conf.Get("prefixdir")
+	prefixDirInterface, err := conf.Get("prefixdir")
 	if err != nil {
 		return err
 	}
 
-	var defaultDir string
+	var prefixDir string
 	var ok bool
-	if defaultDir, ok = defaultDirInterface.(string); !ok {
-		return fmt.Errorf("Error converting defaultDir to string")
+	if prefixDir, ok = prefixDirInterface.(string); !ok {
+		return fmt.Errorf("Error converting prefixDir to string")
 	}
 
-	fmt.Println(defaultDir)
+	archiveDir := prefixDir+"archives/"
+	fmt.Println(archiveDir)
 
-	// Check if prefixdir exists and create if it doesn't
-	src, err := os.Stat(defaultDir)
+	// Check if $prefixdir/archives exists and create if it doesn't
+	src, err := os.Stat(archiveDir)
 	if err != nil {
 		// Create prefix directory
-		err = os.MkdirAll(defaultDir, 0755)
+		err = os.MkdirAll(archiveDir, 0755)
 		if err != nil {
 			return err
 		}
@@ -68,7 +70,7 @@ func Download(tune *parser.Env, conf *config.Config) error {
 	}
 	defer res.Body.Close()
 
-	outFile, err := os.OpenFile(defaultDir+base,
+	outFile, err := os.OpenFile(archiveDir+base,
 		os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
 		return err
@@ -102,6 +104,44 @@ func Download(tune *parser.Env, conf *config.Config) error {
 
 	if checksum != fmt.Sprintf("%x", hash.Sum(nil)) {
 		return fmt.Errorf("Checksums not equal")
+	}
+
+	err = expand(prefixDir, archiveDir+base)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func expand(prefixdir, filename string) error {
+	fmt.Println("Attempting to expand...")
+
+	srcDir := prefixdir+"src/"
+	// Check if $prefixdir/src exists and create if it doesn't
+	src, err := os.Stat(srcDir)
+	if err != nil {
+		// Create prefix directory
+		err = os.MkdirAll(srcDir, 0755)
+		if err != nil {
+			return err
+		}
+	} else {
+		if !src.IsDir() {
+			fmt.Errorf("Prefix directory exists and is not a directory")
+		}
+	}
+
+	args := []string{
+		"-C",
+		srcDir,
+		"-xf",
+		filename,
+	}
+
+	_, err = exec.Command("tar", args...).Output()
+	if err != nil {
+		return err
 	}
 
 	return nil
