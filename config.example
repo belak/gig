@@ -1,0 +1,10 @@
+;; -*- mode: Lisp; -*-
+;; vim: set ft=scheme:
+;;
+;; Move to ~/.gig/config or ~/.config/gig/config
+;; as you see fit on your system
+
+;; Core configuration values
+
+; Sets where source tarballs are downloaded
+(var prefixdir (str "$HOME/.gig/src/"))

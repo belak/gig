@@ -22,12 +22,6 @@ const (
 )
 
 func Download(tune *parser.Env, conf *config.Config) error {
-	confVals := &CoreConfig{}
-	err := conf.Load("core", confVals)
-	if err != nil {
-		return err
-	}
-
 	url, err := tune.GetString("pkg-url")
 	if err != nil {
 		return err
@@ -38,18 +32,24 @@ func Download(tune *parser.Env, conf *config.Config) error {
 		return err
 	}
 
-	defaultDir, err := tune.GetString("default-prefixdir")
+	defaultDirInterface, err := conf.Get("prefixdir")
 	if err != nil {
 		return err
+	}
+
+	var defaultDir string
+	var ok bool
+	if defaultDir, ok = defaultDirInterface.(string); !ok {
+		return fmt.Errorf("Error converting defaultDir to string")
 	}
 
 	fmt.Println(defaultDir)
 
 	// Check if prefixdir exists and create if it doesn't
-	src, err := os.Stat(confVals.Prefixdir + "src")
+	src, err := os.Stat(defaultDir)
 	if err != nil {
 		// Create prefix directory
-		err = os.MkdirAll(confVals.Prefixdir+"src", 0755)
+		err = os.MkdirAll(defaultDir, 0755)
 		if err != nil {
 			return err
 		}
@@ -68,7 +68,7 @@ func Download(tune *parser.Env, conf *config.Config) error {
 	}
 	defer res.Body.Close()
 
-	outFile, err := os.OpenFile(confVals.Prefixdir+"src/"+base,
+	outFile, err := os.OpenFile(defaultDir+base,
 		os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
 		return err
@@ -99,9 +99,6 @@ func Download(tune *parser.Env, conf *config.Config) error {
 			return err
 		}
 	}
-
-	fmt.Printf("\nDownloaded %d bytes\n", downloadedBytes)
-	fmt.Printf("expected: %s\ncalcul'd: %x\n", checksum, hash.Sum(nil))
 
 	if checksum != fmt.Sprintf("%x", hash.Sum(nil)) {
 		return fmt.Errorf("Checksums not equal")

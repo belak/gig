@@ -19,12 +19,19 @@ type Env struct {
 
 type Node ast.Node
 
+// Returns error for consistency with NewBootstrappedEnv
+// Will never actually return an error
 func NewEnv() (*Env, error) {
 	fset := twik.NewFileSet()
 	scope := twik.NewScope(fset)
 	env := &Env{scope, fset}
 
-	// Add our stuff
+	return env, nil
+}
+
+func NewBootstrappedEnv() (*Env, error) {
+	env, _ := NewEnv()
+
 	err := env.bootstrap()
 	if err != nil {
 		return nil, err
@@ -234,6 +241,10 @@ func (e *Env) GetString(name string) (string, error) {
 	}
 
 	return val.(string), err
+}
+
+func (e *Env) Get(name string) (interface{}, error) {
+	return e.scope.Get(name)
 }
 
 func (e *Env) GetStringArray(name string) ([]string, error) {

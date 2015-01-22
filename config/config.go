@@ -1,24 +1,36 @@
 package config
 
 import (
-	"fmt"
+	"os"
 
-	"github.com/BurntSushi/toml"
+	"../parser"
 )
 
 type Config struct {
-	confValues map[string]toml.Primitive
-	md         toml.MetaData
+	env *parser.Env
 }
 
+var DefaultConfigLocation = os.ExpandEnv("$HOME/.gig/config")
+
 func NewConfig(filename string) (*Config, error) {
-	c := &Config{
-		make(map[string]toml.Primitive),
-		toml.MetaData{},
+	c := &Config{}
+	var err error
+	c.env, err = parser.NewBootstrappedEnv()
+	if err != nil {
+		return nil, err
 	}
 
-	var err error
-	c.md, err = toml.DecodeFile(filename, c.confValues)
+	tune, err := c.env.LoadTune(filename)
+	if err != nil {
+		// Well that didn't work. Let's try something else.
+		c, err = NewDefaultConfig()
+		if err != nil {
+			// Welp, we tried.
+			return nil, err
+		}
+	}
+
+	_, err = c.env.Eval(tune)
 	if err != nil {
 		return nil, err
 	}
@@ -26,9 +38,27 @@ func NewConfig(filename string) (*Config, error) {
 	return c, nil
 }
 
-func (c *Config) Load(section string, conf interface{}) error {
-	if v, ok := c.confValues[section]; ok {
-		return c.md.PrimitiveDecode(v, conf)
+func NewDefaultConfig() (*Config, error) {
+	c := &Config{}
+	var err error
+	c.env, err = parser.NewBootstrappedEnv()
+	if err != nil {
+		return nil, err
 	}
-	return fmt.Errorf("Config section %q missing", section)
+
+	tune, err := c.env.LoadTune(DefaultConfigLocation)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = c.env.Eval(tune)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func (c *Config) Get(key string) (interface{}, error) {
+	return c.env.Get(key)
 }
